@@ -583,6 +583,112 @@ export async function synthesize(data) {
   // Fetch RSS
   const news = await fetchAllNews();
 
+  // Cloudflare Radar — internet outages, DDoS attacks, traffic anomalies
+  const cfData = data.sources['Cloudflare-Radar'] || {};
+  const countryCoords = {
+    AF:[33,65],AL:[41,20],DZ:[28,3],AO:[-12,17],AR:[-34,-64],AM:[40,45],AU:[-27,133],AT:[47,13],
+    AZ:[40,48],BH:[26,50],BD:[24,90],BY:[53,28],BE:[51,4],BO:[-17,-65],BA:[44,18],BR:[-14,-51],
+    BG:[43,25],KH:[13,105],CM:[6,12],CA:[56,-106],CF:[7,21],TD:[15,19],CL:[-35,-71],CN:[35,105],
+    CO:[4,-72],CD:[-4,22],CG:[-1,15],CR:[10,-84],HR:[45,16],CU:[22,-80],CY:[35,33],CZ:[50,16],
+    DK:[56,10],EC:[-2,-78],EG:[27,30],SV:[14,-89],EE:[59,26],ET:[9,38],FI:[64,26],FR:[46,2],
+    GE:[42,44],DE:[51,9],GH:[8,-2],GR:[39,22],GT:[16,-90],GN:[11,-10],HT:[19,-72],HN:[15,-87],
+    HU:[47,20],IN:[21,78],ID:[-5,120],IR:[32,53],IQ:[33,44],IE:[53,-8],IL:[31,35],IT:[43,12],
+    JM:[18,-77],JP:[36,138],JO:[31,36],KZ:[48,68],KE:[-1,38],KW:[29,48],KG:[41,75],LA:[18,105],
+    LV:[57,25],LB:[34,36],LY:[27,17],LT:[56,24],MG:[-20,47],MW:[-14,34],MY:[4,102],ML:[17,-4],
+    MX:[23,-102],MD:[47,29],MN:[48,107],ME:[43,19],MA:[32,-5],MZ:[-18,35],MM:[22,96],NA:[-22,17],
+    NP:[28,84],NL:[52,5],NZ:[-42,174],NI:[13,-85],NE:[18,8],NG:[10,8],KP:[40,127],NO:[62,10],
+    OM:[21,56],PK:[30,70],PS:[32,35],PA:[9,-80],PY:[-23,-58],PE:[-10,-76],PH:[12,122],PL:[52,20],
+    PT:[40,-8],QA:[25,51],RO:[46,25],RU:[62,105],RW:[-2,30],SA:[24,45],SN:[14,-14],RS:[44,21],
+    SL:[9,-12],SG:[1,104],SK:[49,19],SI:[46,15],SO:[6,46],ZA:[-29,24],KR:[37,128],SS:[8,30],
+    ES:[40,-4],LK:[8,81],SD:[13,30],SE:[62,15],CH:[47,8],SY:[35,38],TW:[24,121],TJ:[39,71],
+    TZ:[-6,35],TH:[15,100],TG:[8,1],TN:[34,9],TR:[39,35],TM:[40,60],UG:[1,32],UA:[49,32],
+    AE:[24,54],GB:[54,-2],US:[38,-97],UY:[-33,-56],UZ:[41,65],VE:[8,-66],VN:[16,108],YE:[15,48],
+    ZM:[-15,28],ZW:[-20,30],VI:[18,-65],
+  };
+  function enrichWithCoords(events) {
+    return events.map(e => {
+      const loc = (e.locations || [])[0];
+      const coords = loc && countryCoords[loc];
+      return { ...e, lat: coords?.[0] || null, lon: coords?.[1] || null };
+    });
+  }
+  // Guess country code from scope text (e.g. "AWS me-south-1 region (Bahrain)" -> BH)
+  const scopeCountryMap = {
+    bahrain:'BH',qatar:'QA',uae:'AE',dubai:'AE',israel:'IL',iran:'IR',iraq:'IQ',
+    syria:'SY',lebanon:'LB',turkey:'TR',egypt:'EG',ukraine:'UA',russia:'RU',
+    china:'CN',taiwan:'TW',cuba:'CU',venezuela:'VE',myanmar:'MM',spain:'ES',
+    germany:'DE',france:'FR',italy:'IT',uk:'GB',japan:'JP',india:'IN',brazil:'BR',
+  };
+  function guessCountryFromScope(scope) {
+    if (!scope) return null;
+    const lower = scope.toLowerCase();
+    for (const [name, code] of Object.entries(scopeCountryMap)) {
+      if (lower.includes(name)) return code;
+    }
+    return null;
+  }
+  const cfActiveEvents = (cfData.outages?.activeEvents || []).slice(0, 10).map(e => {
+    let locs = e.locations || [];
+    if (!locs.length) { const guess = guessCountryFromScope(e.scope); if (guess) locs = [guess]; }
+    const coords = locs[0] && countryCoords[locs[0]];
+    return {
+      desc: e.description?.substring(0, 120),
+      scope: e.scope?.substring(0, 60),
+      start: e.startDate, locations: locs, type: e.eventType,
+      lat: coords?.[0] || null, lon: coords?.[1] || null,
+    };
+  });
+  const cfResolvedEvents = (cfData.outages?.recentResolved || []).slice(0, 5).map(e => {
+    let locs = e.locations || [];
+    if (!locs.length) { const guess = guessCountryFromScope(e.scope); if (guess) locs = [guess]; }
+    const coords = locs[0] && countryCoords[locs[0]];
+    return {
+      desc: e.description?.substring(0, 120),
+      scope: e.scope?.substring(0, 60),
+      locations: locs, lat: coords?.[0] || null, lon: coords?.[1] || null,
+    };
+  });
+  const cfAnomalyEvents = (cfData.anomalies?.events || []).slice(0, 8).map(e => {
+    // anomalies have location in asnDetails.location.code or locationDetails
+    let locs = [];
+    const asnLoc = e.asnDetails?.location?.code;
+    if (asnLoc) locs.push(asnLoc);
+    if (!locs.length && e.locationDetails) locs = Object.keys(e.locationDetails);
+    const coords = locs[0] && countryCoords[locs[0]];
+    const asnName = e.asnDetails?.name;
+    return {
+      start: e.startDate, end: e.endDate,
+      locations: locs,
+      asns: asnName ? [asnName] : [],
+      lat: coords?.[0] || null, lon: coords?.[1] || null,
+    };
+  });
+  // Format attack percentages as readable values
+  const rawAttacks = cfData.attacks || {};
+  const attacks = {};
+  if (rawAttacks.byProtocol) {
+    attacks.byProtocol = Object.fromEntries(
+      Object.entries(rawAttacks.byProtocol).map(([k, v]) => [k, Math.round(parseFloat(v))])
+    );
+  }
+  if (rawAttacks.byVector) {
+    attacks.byVector = Object.fromEntries(
+      Object.entries(rawAttacks.byVector).map(([k, v]) => [k, Math.round(parseFloat(v))])
+    );
+  }
+  const cloudflare = {
+    outages: {
+      total: cfData.outages?.total || 0,
+      active: cfData.outages?.active || 0,
+      events: cfActiveEvents,
+      resolved: cfResolvedEvents,
+      topLocations: (cfData.outages?.topAffectedLocations || []).slice(0, 8),
+    },
+    anomalies: { total: cfData.anomalies?.total || 0, events: cfAnomalyEvents },
+    attacks,
+    signals: cfData.signals || [],
+  };
+
   const V2 = {
     meta: data.crucix, air, thermal, tSignals, chokepoints, nuke, nukeSignals,
     airMeta: {
@@ -595,7 +701,7 @@ export async function synthesize(data) {
     },
     sdr: { total: sdrNet.totalReceivers || 0, online: sdrNet.online || 0, zones: sdrZones },
     tg: { posts: tgData.totalPosts || 0, urgent: tgUrgent, topPosts: tgTop },
-    who, fred, energy, bls, treasury, gscpi, defense, noaa, epa, acled, gdelt, space, health, news,
+    who, fred, energy, bls, treasury, gscpi, defense, noaa, epa, acled, gdelt, space, health, news, cloudflare,
     markets, // Live Yahoo Finance market data
     ideas: [], ideasSource: 'disabled',
     // newsFeed for ticker (merged RSS + GDELT + Telegram)

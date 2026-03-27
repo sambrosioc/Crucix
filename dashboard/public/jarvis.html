@@ -619,6 +619,7 @@ function renderLeftRail(){
     {name:t('layers.conflictEvents','Conflict Events'),count:conflictEvents,dot:'thermal',sub:`${conflictFatal.toLocaleString()} ${t('layers.fatalities','fatalities')}`},
     {name:t('layers.healthWatch','Health Watch'),count:D.who.length,dot:'health',sub:t('layers.whoAlerts','WHO alerts')},
     {name:t('layers.worldNews','World News'),count:newsCount,dot:'news',sub:t('layers.rssGeolocated','RSS geolocated')},
+    {name:'Internet Watch',count:D.cloudflare?.outages?.active||0,dot:'maritime',sub:`${D.cloudflare?.outages?.total||0} outages (30d)`},
     {name:t('layers.osintFeed','OSINT Feed'),count:D.tg.posts,dot:'incident',sub:`${D.tg.urgent.length} ${t('badges.urgent','urgent').toLowerCase()}`},
     {name:t('layers.spaceActivity','Satellites'),count:D.space?.militarySats||0,dot:'space',sub:`${D.space?.totalNewObjects||0} ${t('space.newLast30d','new (30d)')}`}
   ];
@@ -662,6 +663,18 @@ function renderLeftRail(){
         ${Object.entries(D.space.militaryByCountry||{}).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([c,n])=>`<div class="econ-row"><span class="elabel" style="padding-left:8px">${c}</span><span class="eval" style="font-size:10px">${n} mil sats</span></div>`).join('')}
         ${(D.space.signals||[]).length ? `<div style="margin-top:6px;padding:6px 8px;border:1px solid rgba(68,204,255,0.2);background:rgba(68,204,255,0.04);font-family:var(--mono);font-size:9px;color:var(--accent2);line-height:1.5">${D.space.signals.slice(0,2).join('<br>')}</div>` : ''}
       ` : '<div style="font-family:var(--mono);font-size:10px;color:var(--dim)">NO SPACE DATA</div>'}
+    </div>
+    <div class="g-panel">
+      <div class="sec-head"><h3>Internet Watch</h3><span class="badge" style="color:${D.cloudflare?.outages?.active>0?'var(--warn)':'var(--accent)'}">${D.cloudflare?.outages?.active||0} ACTIVE</span></div>
+      ${D.cloudflare?.outages?.total ? `
+        <div class="econ-row"><span class="elabel">Outages (30d)</span><span class="eval">${D.cloudflare.outages.total}</span></div>
+        <div class="econ-row"><span class="elabel">Active Now</span><span class="eval" style="color:${D.cloudflare.outages.active>0?'var(--warn)':'var(--accent)'}">${D.cloudflare.outages.active}</span></div>
+        <div class="econ-row"><span class="elabel">Anomalies</span><span class="eval">${D.cloudflare.anomalies?.total||0}</span></div>
+        ${D.cloudflare.attacks?.byProtocol ? `<div class="econ-row"><span class="elabel">DDoS L3</span><span class="eval" style="font-size:9px">${Object.entries(D.cloudflare.attacks.byProtocol).map(([k,v])=>k+' '+v+'%').join(' | ')}</span></div>` : ''}
+        ${D.cloudflare.attacks?.byVector ? `<div class="econ-row"><span class="elabel">Attack Vector</span><span class="eval" style="font-size:9px">${Object.entries(D.cloudflare.attacks.byVector).slice(0,3).map(([k,v])=>k+' '+v+'%').join(' | ')}</span></div>` : ''}
+        ${(D.cloudflare.outages.events||[]).map(e=>`<div style="margin-top:4px;padding:5px 8px;border:1px solid rgba(255,95,99,0.2);background:rgba(255,95,99,0.04);font-family:var(--mono);font-size:9px;line-height:1.4"><span style="color:var(--warn)">&#9888;</span> <span style="color:var(--fg)">${e.desc||'Unknown'}</span>${e.scope?'<br><span style="color:var(--dim)">'+e.scope+'</span>':''}${e.locations?.length?'<br><span style="color:var(--accent2)">['+e.locations.join(', ')+']</span>':''}</div>`).join('')}
+        ${(D.cloudflare.signals||[]).length ? `<div style="margin-top:6px;padding:6px 8px;border:1px solid rgba(100,240,200,0.2);background:rgba(100,240,200,0.04);font-family:var(--mono);font-size:9px;color:var(--accent);line-height:1.5">${D.cloudflare.signals.map(s=>typeof s==='string'?s:s.signal||'').slice(0,3).join('<br>')}</div>` : ''}
+      ` : '<div style="font-family:var(--mono);font-size:10px;color:var(--dim)">NO CLOUDFLARE DATA — Set CLOUDFLARE_API_TOKEN</div>'}
     </div>`;
 }
 
@@ -682,7 +695,7 @@ function bindMapLifecycleEvents(){
 function renderMapLegend(){
   document.getElementById('mapLegend').innerHTML=
     [{c:'#64f0c8',l:t('map.airTraffic','Air Traffic')},{c:'#ff5f63',l:t('map.thermalFire','Thermal/Fire')},{c:'rgba(255,120,80,0.8)',l:t('map.conflict','Conflict')},{c:'#44ccff',l:t('map.sdrReceiver','SDR Receiver')},
-     {c:'#ffe082',l:t('map.nuclearSite','Nuclear Site')},{c:'#b388ff',l:t('map.chokepoint','Chokepoint')},{c:'#ffb84c',l:t('map.osintEvent','OSINT Event')},{c:'#69f0ae',l:t('map.healthAlert','Health Alert')},{c:'#81d4fa',l:t('map.worldNews','World News')},{c:'#ff9800',l:t('map.weatherAlert','Weather Alert')},{c:'#cddc39',l:t('map.epaRadNet','EPA RadNet')},{c:'#ffffff',l:t('map.spaceStation','Space Station')},{c:'#6495ed',l:t('map.gdeltEvent','GDELT Event')}]
+     {c:'#ffe082',l:t('map.nuclearSite','Nuclear Site')},{c:'#ff00c8',l:'Internet Outage'},{c:'#b388ff',l:t('map.chokepoint','Chokepoint')},{c:'#ffb84c',l:t('map.osintEvent','OSINT Event')},{c:'#69f0ae',l:t('map.healthAlert','Health Alert')},{c:'#81d4fa',l:t('map.worldNews','World News')},{c:'#ff9800',l:t('map.weatherAlert','Weather Alert')},{c:'#cddc39',l:t('map.epaRadNet','EPA RadNet')},{c:'#ffffff',l:t('map.spaceStation','Space Station')},{c:'#6495ed',l:t('map.gdeltEvent','GDELT Event')}]
     .map(x=>`<div class="leg-item"><div class="leg-dot" style="background:${x.c}"></div>${x.l}</div>`).join('');
 }
 
@@ -930,6 +943,27 @@ function plotMarkers(){
       color:'rgba(129,212,250,0.7)', type:'news', priority:3,
       popHead:n.source+' NEWS', popMeta:n.region+' · '+getAge(n.date),
       popText:cleanText(n.title)
+    });
+  });
+
+  // === Internet outages (magenta) ===
+  (D.cloudflare?.outages?.events||[]).forEach(e=>{
+    if(!e.lat||!e.lon) return;
+    points.push({
+      lat:e.lat, lng:e.lon, size:0.4, alt:0.02,
+      color:'rgba(255,0,200,0.85)', type:'internet', priority:1,
+      popHead:'INTERNET OUTAGE', popMeta:'Cloudflare Radar',
+      popText:`${e.desc||'Unknown'}<br>${e.scope?'Scope: '+e.scope+'<br>':''}${e.locations?.length?'Location: '+e.locations.join(', '):''}<br>Since: ${e.start?new Date(e.start).toLocaleDateString():''}`
+    });
+    labels.push({lat:e.lat, lng:e.lon+2, text:'OUTAGE '+(e.locations||[]).join(','), size:0.35, color:'rgba(255,0,200,0.7)'});
+  });
+  (D.cloudflare?.anomalies?.events||[]).forEach(e=>{
+    if(!e.lat||!e.lon) return;
+    points.push({
+      lat:e.lat, lng:e.lon, size:0.25, alt:0.012,
+      color:'rgba(255,0,200,0.5)', type:'internet', priority:2,
+      popHead:'TRAFFIC ANOMALY', popMeta:'Cloudflare Radar',
+      popText:`Location: ${e.locations?.join(', ')||'Unknown'}${e.asns?.length?'<br>ISP: '+e.asns.join(', '):''}<br>${e.start?new Date(e.start).toLocaleDateString():''}`
     });
   });
 
@@ -1241,6 +1275,9 @@ function plotFlatMarkers(){
   D.who.slice(0,10).forEach((w,i)=>{const c=whoGeo[i];if(!c)return;addPt(c.lat,c.lon,3.5,'rgba(105,240,174,0.6)','rgba(105,240,174,0.2)',ev=>showPopup(ev,w.title,w.summary||'','WHO'),2)});
   // News
   (D.news||[]).forEach(n=>{addPt(n.lat,n.lon,3,'rgba(129,212,250,0.6)','rgba(129,212,250,0.2)',ev=>showPopup(ev,n.source+' NEWS',cleanText(n.title),n.region),3)});
+  // Internet outages (magenta)
+  (D.cloudflare?.outages?.events||[]).forEach(e=>{if(!e.lat||!e.lon)return;addPt(e.lat,e.lon,6,'rgba(255,0,200,0.8)','rgba(255,0,200,0.3)',ev=>showPopup(ev,'INTERNET OUTAGE',`${e.desc||''}${e.scope?'<br>'+e.scope:''}`,'Cloudflare Radar'),1)});
+  (D.cloudflare?.anomalies?.events||[]).forEach(e=>{if(!e.lat||!e.lon)return;addPt(e.lat,e.lon,4,'rgba(255,0,200,0.5)','rgba(255,0,200,0.2)',ev=>showPopup(ev,'TRAFFIC ANOMALY',`${e.locations?.join(', ')||''}${e.asns?.length?'<br>'+e.asns.join(', '):''}`,'Cloudflare Radar'),2)});
   // NOAA weather
   (D.noaa?.alerts||[]).forEach(a=>{addPt(a.lat,a.lon,4,'rgba(255,152,0,0.7)','rgba(255,152,0,0.3)',ev=>showPopup(ev,a.event,a.headline||'','NOAA/NWS'),2)});
   // EPA RadNet

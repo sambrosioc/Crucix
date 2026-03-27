@@ -51,12 +51,16 @@ async function fetchFires(opts = {}) {
 
 // Key conflict/hotspot zones
 const HOTSPOTS = {
+  spain: { west: -10, south: 35, east: 5, north: 44, label: 'Spain' },
+  europe: { west: -12, south: 35, east: 45, north: 72, label: 'Europe' },
   middleEast: { west: 30, south: 12, east: 65, north: 42, label: 'Middle East' },
   ukraine: { west: 22, south: 44, east: 41, north: 53, label: 'Ukraine' },
   iran: { west: 44, south: 25, east: 63, north: 40, label: 'Iran' },
   sudanHorn: { west: 21, south: 2, east: 52, north: 23, label: 'Sudan / Horn of Africa' },
   myanmar: { west: 92, south: 9, east: 102, north: 29, label: 'Myanmar' },
   southAsia: { west: 60, south: 5, east: 98, north: 37, label: 'South Asia' },
+  americas: { west: -130, south: -56, east: -30, north: 50, label: 'Americas' },
+  africa: { west: -18, south: -35, east: 52, north: 37, label: 'Africa' },
 };
 
 // Analyze fire detections for potential military/strike activity
