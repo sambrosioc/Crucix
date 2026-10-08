@@ -46,3 +46,7 @@ MAINTAINER_DECISIONS.local.md
 
 # Local deploy config
 dashboard/public/vercel.json
+
+# Grafo de graphify: se regenera solo en cada equipo y pesa cientos de MB.
+# Hasta ahora solo estaba en .git/info/exclude, que no viaja con un clone.
+graphify-out/
