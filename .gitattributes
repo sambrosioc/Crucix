@@ -1,0 +1,4 @@
+# Saltos de línea LF en cualquier equipo. Git para Windows los convierte a CRLF al
+# descargar, y con CRLF los .sh no arrancan en bash. Con esto, Windows descarga en LF y
+# convierte a LF lo que se suba desde allí.
+* text=auto eol=lf
